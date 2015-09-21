@@ -151,6 +151,8 @@ class Params:
                 if hmod > groups[groupkey]["mtime"]:
                     groups[groupkey]["mtime"] = mmod
 
+        return True
+
     def grindFile(self,hpath,filename,mp):
         if self.opt.verbose:
             sys.stdout.write(".")
@@ -160,6 +162,7 @@ class Params:
         test.dump(mp)
 
     def validateSource(self):
+        errors = 0
         skip_to_pos = 0
         if os.path.exists( self.pickle ):
             upfh = open(self.pickle)
@@ -175,10 +178,16 @@ class Params:
             if pos < skip_to_pos: continue
             p = self.files['humans'][filename]
             test = CslTest(opt,self.cp,p,filename,pos=pos)
-            test.parse()
-            test.validate()
+            try:
+                test.parse()
+                test.validate()
+            except Exception as e:
+                errors += 1
+                print(e)
         if os.path.exists( self.pickle ):
             os.unlink(self.pickle)
+
+        return False if errors else True
 
     def initConfig(self):
 
@@ -311,7 +320,7 @@ class CslTest:
             rnc_path = os.path.join(self.cp.get("csl", "v%s" % m.group(1)))
         else:
             print "Error: Unable to find CSL version in %s" % self.hp
-            sys.exit()
+            raise Exception("Unable to find CSL version in %s" % self.hp)
         tfd,tfilename = tempfile.mkstemp(dir=".")
         os.write(tfd,self.data["csl"])
         os.close(tfd)
@@ -354,8 +363,8 @@ class CslTest:
             pickler = Pickler( pfh )
 
             pickler.dump( (opt, self.pos) )
-            sys.exit()
-        
+            raise Exception('Unsuccessful validation of %s' % self.hp)
+
  
 if __name__ == "__main__":
 
@@ -402,16 +411,18 @@ if __name__ == "__main__":
     # 
     params = Params(opt,args)
 
+    successful = False
+
     try:
         params.getSourcePaths()
         if opt.grind:
             params.clearSource()
-            params.refreshSource(force=True)
+            successful = params.refreshSource(force=True)
             print ""
         else:
-            params.refreshSource()
+            successful = params.refreshSource()
         if opt.cranky:
-            params.validateSource()
+            successful = params.validateSource()
     except (KeyboardInterrupt, SystemExit):
         for file in os.listdir("."):
             if not file.startswith("tmp") or not len(file) == 9: continue
@@ -428,4 +439,7 @@ if __name__ == "__main__":
     except NoLicense:
         print '\nError: No license found in load.js'
 
-    print "Processor tests successfully compiled"
+    if successful:
+        print("Processor tests successfully compiled")
+
+    sys.exit(0 if successful else 1)
