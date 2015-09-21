@@ -1,0 +1,27 @@
+language: python
+
+sudo: false
+
+python:
+  - '2.7'
+
+addons:
+  apt:
+    packages:
+      - jing
+
+install:
+  - git clone https://github.com/citation-style-language/schema
+
+before_script:
+  - mkdir config
+  - echo '[jing]' > config/processor.cnf
+  - printf "command %s java -jar\n" ":" >> config/processor.cnf
+  - printf "path %s /usr/share/java/jing.jar\n" ":" >> config/processor.cnf
+  - echo '[csl]' >> config/processor.cnf
+  - printf "v1.0 %s schema/csl.rnc\n" ":" >> config/processor.cnf
+  - printf "v1.1mlz1 %s schema/csl.rnc\n" ":" >> config/processor.cnf
+
+script:
+  - python processor.py -g
+  - python processor.py -c
